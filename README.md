@@ -13,7 +13,7 @@ The format for a post is:
 
 ```
 ---
-title: Post Title
+title: "Post Title"
 date: 2019-06-28
 ---
 
