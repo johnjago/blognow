@@ -1,4 +1,4 @@
-# blognow
+# blognow ![](https://travis-ci.org/johnjago/blognow.svg?branch=master)
 Blognow is a dead simple static site generator for blogs.
 
 ## Usage
