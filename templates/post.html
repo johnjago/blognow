@@ -1,2 +1,14 @@
-<h1>{{.Title}}<h1>
-{{.Content}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{{ .Title }}</title>
+</head>
+<body>
+  <h1>{{ .Title }}</h1>
+  {{ .Content }}
+  <p>Posted: {{ .Date }}</p>
+  <a href="/archive/">See all posts »</a>
+</body>
+</html>

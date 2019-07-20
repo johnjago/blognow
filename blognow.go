@@ -23,13 +23,20 @@ baseURL = "https://example.org/"
 title = "My Blog"
 tagline = "Don't sail too close to the wind"
 `
-
 const samplePost string = `
 ---
 title = "My First Post"
 date = 2019-05-05
 ---
 `
+const postsDir string = "posts"
+
+type Blog struct {
+	BaseURL string
+	Title string
+	Tagline string
+	Posts []Post
+}
 
 type Post struct {
 	Title   string
@@ -48,36 +55,29 @@ func main() {
 }
 
 func makeBlogDir(path string) {
-	postsPath := filepath.Join(path, "posts")
+	postsPath := filepath.Join(path, postsDir)
 	os.MkdirAll(postsPath, os.ModePerm)
 	fmt.Println("Created a new blog: " + path)
 	createFile(path+"/config.toml", sampleConfig)
 	createFile(postsPath+"/sample.md", samplePost)
 }
 
-func createFile(name string, content string) {
-	contentBytes := []byte(content)
-	err := ioutil.WriteFile(name, contentBytes, 0644)
-	check(err)
-}
-
 func build() {
-	postsDir := "posts"
+	outputDir := "dist/"
+	os.Mkdir(outputDir, os.ModePerm)
 	err := godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
 			if ext == ".md" {
-				filename := filepath.Base(strings.TrimSuffix(osPathname, ext))
-				fmt.Println(filename)
 				content, err := ioutil.ReadFile(osPathname)
 				check(err)
 				post := parse(string(content))
-				fmt.Println(post)
 				tmpl := template.Must(template.ParseFiles("templates/post.html"))
-				var buff bytes.Buffer
-				tmpl.Execute(&buff, post)
-				fmt.Println(buff.String())
-				// output template to file
+				var postHTML bytes.Buffer
+				tmpl.Execute(&postHTML, post)
+				postSlug := slug(post.Title)
+				os.Mkdir(outputDir + postSlug, os.ModePerm)
+				createFile("dist/" + postSlug  + "/index.html", postHTML.String())
 			}
 			return nil
 		},
@@ -112,17 +112,12 @@ func extractFrontMatter(content string) string {
 	frontMatter := ""
 	lines := strings.Split(content, "\n")
 	if len(lines) < 2 {
-		// error handle
+		// TODO: error handle
 		return ""
 	}
-	for i, line := range lines {
-		if i == 0 {
-			continue
-		}
-		if line == "---" {
-			break
-		}
-		frontMatter += line + "\n"
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "---" { break } // End of front matter
+		frontMatter += lines[i] + "\n"
 	}
 	return frontMatter
 }
@@ -133,13 +128,29 @@ func extractBody(content string) string {
 	body := ""
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
-		if i < 4 {
-			continue
+		if i < 4 { continue } // Skip past the front matter
+		// Since the H1 is added automatically, move all other headings
+		// down one level.
+		if strings.HasPrefix(line, "#") {
+			line = "#" + line
 		}
 		body += line + "\n"
 	}
 	md := markdown.New()
 	return md.RenderToString([]byte(body))
+}
+
+func createFile(name string, content string) {
+	contentBytes := []byte(content)
+	err := ioutil.WriteFile(name, contentBytes, 0644)
+	check(err)
+}
+
+// slug turns a string into this-kind-of-format that can be used in a URL.
+func slug(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
 }
 
 func check(e error) {

@@ -30,6 +30,22 @@ func TestMakeBlogDir(t *testing.T) {
 	os.RemoveAll(basepath)
 }
 
+func TestSlug(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"My First Post", "my-first-post"},
+		{"Hello 世界", "hello-世界"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		got := slug(c.in)
+		if got != c.want {
+			t.Errorf("slug(%q) == %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func readFileAndCompare(path, expected string, t *testing.T) {
 	file, err := os.Open(path)
 	check(err)
