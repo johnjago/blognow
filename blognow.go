@@ -10,9 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"html/template"
+	"bytes"
 
 	"github.com/BurntSushi/toml"
 	"github.com/karrick/godirwalk"
+	"gitlab.com/golang-commonmark/markdown"
 )
 
 const sampleConfig string = `
@@ -31,7 +34,7 @@ date = 2019-05-05
 type Post struct {
 	Title   string
 	Date    time.Time
-	Content string
+	Content template.HTML
 }
 
 func main() {
@@ -70,16 +73,18 @@ func build() {
 				check(err)
 				post := parse(string(content))
 				fmt.Println(post)
-				// insert post data structure into template
+				tmpl := template.Must(template.ParseFiles("templates/post.html"))
+				var buff bytes.Buffer
+				tmpl.Execute(&buff, post)
+				fmt.Println(buff.String())
 				// output template to file
 			}
 			return nil
 		},
 		Unsorted: true,
 	})
-
 	if err != nil {
-		fmt.Printf("error walking the path %q: %v\n", postsDir, err)
+		fmt.Printf("Error walking the path %q: %v\n", postsDir, err)
 	}
 
 	// for each post in posts/
@@ -90,14 +95,27 @@ func build() {
 	// iterate through post list and create all posts page
 }
 
+// parse creates a Post struct from a post file containing front matter and
+// Markdown.
 func parse(content string) Post {
-	frontMatter := ""
 	post := Post{}
-	contentLines := strings.Split(content, "\n")
-	if len(contentLines) < 2 {
-		return post
+	frontMatter := extractFrontMatter(content)
+	_, err := toml.Decode(frontMatter, &post)
+	check(err)
+	post.Content = template.HTML(extractBody(content))
+	return post
+}
+
+// extractFrontMatter returns the front matter as a string given
+// the entire contents of a post file.
+func extractFrontMatter(content string) string {
+	frontMatter := ""
+	lines := strings.Split(content, "\n")
+	if len(lines) < 2 {
+		// error handle
+		return ""
 	}
-	for i, line := range contentLines {
+	for i, line := range lines {
 		if i == 0 {
 			continue
 		}
@@ -106,9 +124,22 @@ func parse(content string) Post {
 		}
 		frontMatter += line + "\n"
 	}
-	_, err := toml.Decode(frontMatter, &post)
-	check(err)
-	return post
+	return frontMatter
+}
+
+// extractBody takes the content of a post file, converts the Markdown in the
+// content to an HTML string, and returns this string.
+func extractBody(content string) string {
+	body := ""
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if i < 4 {
+			continue
+		}
+		body += line + "\n"
+	}
+	md := markdown.New()
+	return md.RenderToString([]byte(body))
 }
 
 func check(e error) {
