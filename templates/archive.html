@@ -1,0 +1,11 @@
+{{define "title"}}
+  All Posts - {{.Blog.Title}}
+{{end}}
+
+{{define "body"}}
+  <ul>
+    {{range .Posts}}
+    <li>{{.Date}} <a href="/{{.Slug}}">{{.Title}}</a></li>
+    {{end}}
+  </ul>
+{{end}}

@@ -1,16 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <title>{{ .Post.Title }} - {{ .Blog.Title }}</title>
-</head>
-<body>
-  <h1>{{ .Blog.Title }}</h1>
-  <p>{{ .Blog.Tagline }}</p>
+{{ define "title"}}{{ .Post.Title }} - {{ .Blog.Title }}{{ end }}
+
+{{ define "body" }}
   <h2>{{ .Post.Title }}</h2>
   {{ .Post.Content }}
   <p>Posted: {{ .Post.Date }}</p>
   <a href="/archive/">See all posts »</a>
-</body>
-</html>
+{{ end }}

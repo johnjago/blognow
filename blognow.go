@@ -40,13 +40,18 @@ type BlogInfo struct {
 type Post struct {
 	Title   string
 	Date    time.Time
+	Slug	string
 	Content template.HTML
 }
 
 type PostPageData struct {
-	Val  string
 	Blog BlogInfo
 	Post Post
+}
+
+type AllPostsPageData struct {
+	Blog BlogInfo
+	Posts []Post
 }
 
 func main() {
@@ -71,16 +76,12 @@ func build() {
 	outputDir := "dist/"
 	os.Mkdir(outputDir, os.ModePerm)
 
-	// Get blog info from config.toml
-	config, err := ioutil.ReadFile("config.toml")
-	check(err)
-	blogInfo := BlogInfo{}
-	_, err = toml.Decode(string(config), &blogInfo)
-	check(err)
-	fmt.Println(blogInfo)
+	// Get blog title, tagline, etc. from config.toml
+	blogInfo := blogInfo();
 
 	// Iterate over all .md files in posts/
-	err = godirwalk.Walk(postsDir, &godirwalk.Options{
+	posts := make([]Post, 0)
+	err := godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
 			if ext == ".md" {
@@ -88,36 +89,62 @@ func build() {
 				content, err := ioutil.ReadFile(osPathname)
 				check(err)
 				post := parse(string(content))
+				post.Slug = slug(post.Title)
+				posts = append(posts, post)
 
 				// Build out the template
-				tmpl := template.Must(template.ParseFiles("templates/post.html"))
+				tmpl := template.Must(template.ParseFiles(
+					"templates/base.html",
+					"templates/post.html",
+					"templates/header.html",
+				))
 				templateData := PostPageData{
 					Blog: blogInfo,
 					Post: post,
 				}
-				fmt.Println(templateData)
-				var postHTML bytes.Buffer
-				tmpl.Execute(&postHTML, templateData)
+				var singlePostHTML bytes.Buffer
+				err = tmpl.ExecuteTemplate(&singlePostHTML, "base", templateData)
+				check(err)
 
 				// Generate output file
-				postSlug := slug(post.Title)
-				os.Mkdir(outputDir+postSlug, os.ModePerm)
-				createFile("dist/"+postSlug+"/index.html", postHTML.String())
+				os.Mkdir(outputDir+post.Slug, os.ModePerm)
+				createFile(outputDir+post.Slug+"/index.html", singlePostHTML.String())
 			}
 			return nil
 		},
 		Unsorted: true,
 	})
+
 	if err != nil {
 		fmt.Printf("Error walking the path %q: %v\n", postsDir, err)
 	}
 
-	// for each post in posts/
-	// parse content into a data structure
-	// insert into a template
-	// output the template as new html file in dist/post-title/index.html
+	// Generate all posts page
+	tmpl := template.Must(template.ParseFiles(
+		"templates/base.html",
+		"templates/archive.html",
+		"templates/header.html",
+	))
+	templateData := AllPostsPageData{
+		Blog: blogInfo,
+		Posts: posts,
+	}
+	var allPostsHTML bytes.Buffer
+	err = tmpl.ExecuteTemplate(&allPostsHTML, "base", templateData)
+	check(err)
+	os.Mkdir(outputDir+"archive", os.ModePerm)
+	createFile(outputDir+"archive"+"/index.html", allPostsHTML.String())
+
 	// get the most recent post and copy it to dist/index.html
-	// iterate through post list and create all posts page
+}
+
+func blogInfo() BlogInfo {
+	config, err := ioutil.ReadFile("config.toml")
+	check(err)
+	blogInfo := BlogInfo{}
+	_, err = toml.Decode(string(config), &blogInfo)
+	check(err)
+	return blogInfo
 }
 
 // parse creates a Post struct from a post file containing front matter and
