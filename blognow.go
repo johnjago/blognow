@@ -4,14 +4,14 @@ This is the CLI for Blognow.
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"html/template"
-	"bytes"
 
 	"github.com/BurntSushi/toml"
 	"github.com/karrick/godirwalk"
@@ -31,17 +31,22 @@ date = 2019-05-05
 `
 const postsDir string = "posts"
 
-type Blog struct {
+type BlogInfo struct {
 	BaseURL string
-	Title string
+	Title   string
 	Tagline string
-	Posts []Post
 }
 
 type Post struct {
 	Title   string
 	Date    time.Time
 	Content template.HTML
+}
+
+type PostPageData struct {
+	Val  string
+	Blog BlogInfo
+	Post Post
 }
 
 func main() {
@@ -65,19 +70,39 @@ func makeBlogDir(path string) {
 func build() {
 	outputDir := "dist/"
 	os.Mkdir(outputDir, os.ModePerm)
-	err := godirwalk.Walk(postsDir, &godirwalk.Options{
+
+	// Get blog info from config.toml
+	config, err := ioutil.ReadFile("config.toml")
+	check(err)
+	blogInfo := BlogInfo{}
+	_, err = toml.Decode(string(config), &blogInfo)
+	check(err)
+	fmt.Println(blogInfo)
+
+	// Iterate over all .md files in posts/
+	err = godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
 			if ext == ".md" {
+				// post.md -> Post struct
 				content, err := ioutil.ReadFile(osPathname)
 				check(err)
 				post := parse(string(content))
+
+				// Build out the template
 				tmpl := template.Must(template.ParseFiles("templates/post.html"))
+				templateData := PostPageData{
+					Blog: blogInfo,
+					Post: post,
+				}
+				fmt.Println(templateData)
 				var postHTML bytes.Buffer
-				tmpl.Execute(&postHTML, post)
+				tmpl.Execute(&postHTML, templateData)
+
+				// Generate output file
 				postSlug := slug(post.Title)
-				os.Mkdir(outputDir + postSlug, os.ModePerm)
-				createFile("dist/" + postSlug  + "/index.html", postHTML.String())
+				os.Mkdir(outputDir+postSlug, os.ModePerm)
+				createFile("dist/"+postSlug+"/index.html", postHTML.String())
 			}
 			return nil
 		},
@@ -116,7 +141,9 @@ func extractFrontMatter(content string) string {
 		return ""
 	}
 	for i := 1; i < len(lines); i++ {
-		if lines[i] == "---" { break } // End of front matter
+		if lines[i] == "---" {
+			break
+		} // End of front matter
 		frontMatter += lines[i] + "\n"
 	}
 	return frontMatter
@@ -128,11 +155,13 @@ func extractBody(content string) string {
 	body := ""
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
-		if i < 4 { continue } // Skip past the front matter
-		// Since the H1 is added automatically, move all other headings
-		// down one level.
+		if i < 4 {
+			continue
+		} // Skip past the front matter
+		// Since the blog and post title (h1 and h2, respectively) are added
+		// automatically, all other headings start two levels down.
 		if strings.HasPrefix(line, "#") {
-			line = "#" + line
+			line = "##" + line
 		}
 		body += line + "\n"
 	}
