@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -30,6 +31,7 @@ date = 2019-05-05
 ---
 `
 const postsDir string = "posts"
+const outputDir string = "dist/"
 
 type BlogInfo struct {
 	BaseURL string
@@ -40,7 +42,7 @@ type BlogInfo struct {
 type Post struct {
 	Title   string
 	Date    time.Time
-	Slug	string
+	Slug    string
 	Content template.HTML
 }
 
@@ -49,8 +51,8 @@ type PostPageData struct {
 	Post Post
 }
 
-type AllPostsPageData struct {
-	Blog BlogInfo
+type ArchivePageData struct {
+	Blog  BlogInfo
 	Posts []Post
 }
 
@@ -58,12 +60,13 @@ func main() {
 	if len(os.Args) == 1 {
 		fmt.Println("Building your blog...")
 		build()
-		fmt.Println("Done. Output is in dist/")
+		fmt.Printf("Done. Output is in %s\n", outputDir)
 		os.Exit(0)
 	}
 	makeBlogDir(os.Args[1])
 }
 
+// makeBlogDir creates the initial directory with sample files.
 func makeBlogDir(path string) {
 	postsPath := filepath.Join(path, postsDir)
 	os.MkdirAll(postsPath, os.ModePerm)
@@ -72,16 +75,31 @@ func makeBlogDir(path string) {
 	createFile(postsPath+"/sample.md", samplePost)
 }
 
+// build collects all the necessary information from configuration files
+// and post files and builds the static site.
 func build() {
-	outputDir := "dist/"
 	os.Mkdir(outputDir, os.ModePerm)
 
 	// Get blog title, tagline, etc. from config.toml
-	blogInfo := blogInfo();
+	blogInfo := blogInfo()
+
+	fmap := template.FuncMap{
+		"formatDate": formatDate,
+	}
+	baseTemplate, err := template.New("").Funcs(fmap).ParseFiles(
+		"templates/base.html",
+		"templates/header.html",
+	)
+	check(err)
+	postTemplate, err := template.Must(baseTemplate.Clone()).ParseFiles(
+		"templates/post.html",
+	)
+	check(err)
 
 	// Iterate over all .md files in posts/
 	posts := make([]Post, 0)
-	err := godirwalk.Walk(postsDir, &godirwalk.Options{
+	mostRecent := Post{}
+	err = godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
 			if ext == ".md" {
@@ -91,24 +109,20 @@ func build() {
 				post := parse(string(content))
 				post.Slug = slug(post.Title)
 				posts = append(posts, post)
+				if post.Date.After(mostRecent.Date) {
+					mostRecent = post
+				}
 
-				// Build out the template
-				tmpl := template.Must(template.ParseFiles(
-					"templates/base.html",
-					"templates/post.html",
-					"templates/header.html",
-				))
-				templateData := PostPageData{
+				// Build output using template.
+				data := PostPageData{
 					Blog: blogInfo,
 					Post: post,
 				}
-				var singlePostHTML bytes.Buffer
-				err = tmpl.ExecuteTemplate(&singlePostHTML, "base", templateData)
+				var postHTML bytes.Buffer
+				err = postTemplate.ExecuteTemplate(&postHTML, "base", data)
 				check(err)
-
-				// Generate output file
 				os.Mkdir(outputDir+post.Slug, os.ModePerm)
-				createFile(outputDir+post.Slug+"/index.html", singlePostHTML.String())
+				createFile(outputDir+post.Slug+"/index.html", postHTML.String())
 			}
 			return nil
 		},
@@ -119,25 +133,33 @@ func build() {
 		fmt.Printf("Error walking the path %q: %v\n", postsDir, err)
 	}
 
-	// Generate all posts page
-	tmpl := template.Must(template.ParseFiles(
-		"templates/base.html",
+	// Generate archive page.
+	tmpl, err := template.Must(baseTemplate.Clone()).ParseFiles(
 		"templates/archive.html",
-		"templates/header.html",
-	))
-	templateData := AllPostsPageData{
-		Blog: blogInfo,
+	)
+	check(err)
+	archivePageData := ArchivePageData{
+		Blog:  blogInfo,
 		Posts: posts,
 	}
-	var allPostsHTML bytes.Buffer
-	err = tmpl.ExecuteTemplate(&allPostsHTML, "base", templateData)
+	var archiveHTML bytes.Buffer
+	err = tmpl.ExecuteTemplate(&archiveHTML, "base", archivePageData)
 	check(err)
 	os.Mkdir(outputDir+"archive", os.ModePerm)
-	createFile(outputDir+"archive"+"/index.html", allPostsHTML.String())
+	createFile(outputDir+"archive"+"/index.html", archiveHTML.String())
 
-	// get the most recent post and copy it to dist/index.html
+	// Use the most recent post as the index page.
+	postPageData := PostPageData{
+		Blog: blogInfo,
+		Post: mostRecent,
+	}
+	var postHTML bytes.Buffer
+	err = postTemplate.ExecuteTemplate(&postHTML, "base", postPageData)
+	check(err)
+	createFile(outputDir+"index.html", postHTML.String())
 }
 
+// blogInfo reads a config.toml file and returns a BlogInfo struct.
 func blogInfo() BlogInfo {
 	config, err := ioutil.ReadFile("config.toml")
 	check(err)
@@ -151,8 +173,9 @@ func blogInfo() BlogInfo {
 // Markdown.
 func parse(content string) Post {
 	post := Post{}
-	frontMatter := extractFrontMatter(content)
-	_, err := toml.Decode(frontMatter, &post)
+	frontMatter, err := extractFrontMatter(content)
+	check(err)
+	_, err = toml.Decode(frontMatter, &post)
 	check(err)
 	post.Content = template.HTML(extractBody(content))
 	return post
@@ -160,12 +183,11 @@ func parse(content string) Post {
 
 // extractFrontMatter returns the front matter as a string given
 // the entire contents of a post file.
-func extractFrontMatter(content string) string {
+func extractFrontMatter(content string) (string, error) {
 	frontMatter := ""
 	lines := strings.Split(content, "\n")
 	if len(lines) < 2 {
-		// TODO: error handle
-		return ""
+		return frontMatter, errors.New("Error: Post file missing front matter")
 	}
 	for i := 1; i < len(lines); i++ {
 		if lines[i] == "---" {
@@ -173,7 +195,7 @@ func extractFrontMatter(content string) string {
 		} // End of front matter
 		frontMatter += lines[i] + "\n"
 	}
-	return frontMatter
+	return frontMatter, nil
 }
 
 // extractBody takes the content of a post file, converts the Markdown in the
@@ -207,6 +229,10 @@ func slug(s string) string {
 	s = strings.ToLower(s)
 	s = strings.ReplaceAll(s, " ", "-")
 	return s
+}
+
+func formatDate(t time.Time) string {
+	return t.Format("2006-01-02")
 }
 
 func check(e error) {

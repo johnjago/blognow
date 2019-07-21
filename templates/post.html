@@ -1,8 +1,10 @@
-{{ define "title"}}{{ .Post.Title }} - {{ .Blog.Title }}{{ end }}
+{{define "title"}}
+  {{.Post.Title}} - {{.Blog.Title}}
+{{end}}
 
-{{ define "body" }}
-  <h2>{{ .Post.Title }}</h2>
-  {{ .Post.Content }}
-  <p>Posted: {{ .Post.Date }}</p>
+{{define "body"}}
+  <h2>{{.Post.Title}}</h2>
+  {{.Post.Content}}
+  <p>Posted: {{.Post.Date | formatDate}}</p>
   <a href="/archive/">See all posts »</a>
-{{ end }}
+{{end}}

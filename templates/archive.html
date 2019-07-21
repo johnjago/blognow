@@ -5,7 +5,7 @@
 {{define "body"}}
   <ul>
     {{range .Posts}}
-    <li>{{.Date}} <a href="/{{.Slug}}">{{.Title}}</a></li>
+    <li>{{.Date | formatDate}} <a href="/{{.Slug}}">{{.Title}}</a></li>
     {{end}}
   </ul>
 {{end}}

@@ -67,6 +67,14 @@ func TestSlug(t *testing.T) {
 	}
 }
 
+func TestCreateFile(t *testing.T) {
+	name := "xidf9.test"
+	contents := "This is the contents of the file."
+	createFile(name, contents)
+	readFileAndCompare(name, contents, t)
+	os.Remove(name)
+}
+
 func readFileAndCompare(path, expected string, t *testing.T) {
 	file, err := os.Open(path)
 	check(err)
