@@ -19,13 +19,11 @@ import (
 	"gitlab.com/golang-commonmark/markdown"
 )
 
-const sampleConfig string = `
-baseURL = "https://example.org/"
+const sampleConfig string = `baseURL = "https://example.org/"
 title = "My Blog"
 tagline = "Don't sail too close to the wind"
 `
-const samplePost string = `
----
+const samplePost string = `---
 title = "My First Post"
 date = 2019-05-05
 ---
@@ -73,6 +71,14 @@ func makeBlogDir(path string) {
 	fmt.Println("Created a new blog: " + path)
 	createFile(path+"/config.toml", sampleConfig)
 	createFile(postsPath+"/sample.md", samplePost)
+
+	// Template files
+	templatesPath := filepath.Join(path, "templates")
+	os.MkdirAll(templatesPath, os.ModePerm)
+	createFile(filepath.Join(templatesPath, "base.html"), baseTmpl)
+	createFile(filepath.Join(templatesPath, "header.html"), headerTmpl)
+	createFile(filepath.Join(templatesPath, "post.html"), postTmpl)
+	createFile(filepath.Join(templatesPath, "archive.html"), archiveTmpl)
 }
 
 // build collects all the necessary information from configuration files
