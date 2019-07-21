@@ -12,4 +12,4 @@
 - Archive page to view all posts
 
 [Unreleased]: https://github.com/johnjago/blognow/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/johnjago.com/blognow/releases/tag/0.1.0
+[0.1.0]: https://github.com/johnjago/blognow/releases/tag/0.1.0
