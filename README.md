@@ -1,4 +1,4 @@
-# Blognow ![](https://travis-ci.org/johnjago/blognow.svg?branch=master)
+# Blognow ![Build status](https://travis-ci.org/johnjago/blognow.svg?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/johnjago/blognow)](https://goreportcard.com/report/github.com/johnjago/blognow)
 Blognow is a dead simple static site generator for blogs.
 
 ## Usage
