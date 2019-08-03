@@ -78,7 +78,7 @@ func TestCreateFile(t *testing.T) {
 func readFileAndCompare(path, expected string, t *testing.T) {
 	file, err := os.Open(path)
 	check(err)
-	data := make([]byte, 100)
+	data := make([]byte, 1000)
 	bytesRead, err := file.Read(data)
 	check(err)
 	actual := string(data[:bytesRead])
