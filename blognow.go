@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,19 +24,30 @@ import (
 const sampleConfig string = `baseURL = "https://example.org/"
 title = "My Blog"
 tagline = "Don't sail too close to the wind"
+dateFormat = "2 January 2006"
 `
 const samplePost string = `---
 title = "My First Post"
 date = 2019-05-05
 ---
+
+Welcome to my blog!
+
+# First things
+- One
+- Two
+- Three
+
+> This is a quote.
 `
 const postsDir string = "posts"
 const outputDir string = "dist/"
 
 type BlogInfo struct {
-	BaseURL string
-	Title   string
-	Tagline string
+	BaseURL    string
+	Title      string
+	Tagline    string
+	DateFormat string
 }
 
 type Post struct {
@@ -50,8 +63,9 @@ type PostPageData struct {
 }
 
 type ArchivePageData struct {
-	Blog  BlogInfo
-	Posts []Post
+	Blog       BlogInfo
+	Years      []int
+	YearGroups map[int][]Post
 }
 
 func main() {
@@ -67,18 +81,14 @@ func main() {
 // makeBlogDir creates the initial directory with sample files.
 func makeBlogDir(path string) {
 	postsPath := filepath.Join(path, postsDir)
+	templatesPath := filepath.Join(path, "templates")
 	os.MkdirAll(postsPath, os.ModePerm)
-	fmt.Println("Created a new blog: " + path)
+	makeTemplates(templatesPath)
+
 	createFile(path+"/config.toml", sampleConfig)
 	createFile(postsPath+"/sample.md", samplePost)
 
-	// Template files
-	templatesPath := filepath.Join(path, "templates")
-	os.MkdirAll(templatesPath, os.ModePerm)
-	createFile(filepath.Join(templatesPath, "base.html"), baseTmpl)
-	createFile(filepath.Join(templatesPath, "header.html"), headerTmpl)
-	createFile(filepath.Join(templatesPath, "post.html"), postTmpl)
-	createFile(filepath.Join(templatesPath, "archive.html"), archiveTmpl)
+	fmt.Println("Created a new blog: " + path)
 }
 
 // build collects all the necessary information from configuration files
@@ -89,22 +99,25 @@ func build() {
 	// Get blog title, tagline, etc. from config.toml
 	blogInfo := blogInfo()
 
+	// These functions can be used inside templates.
 	fmap := template.FuncMap{
-		"formatDate": formatDate,
+		"formatDate":        formatDate,
+		"formatArchiveDate": formatArchiveDate,
 	}
+
 	baseTemplate, err := template.New("").Funcs(fmap).ParseFiles(
 		"templates/base.html",
 		"templates/header.html",
 	)
 	check(err)
+
 	postTemplate, err := template.Must(baseTemplate.Clone()).ParseFiles(
 		"templates/post.html",
 	)
 	check(err)
 
-	// Iterate over all .md files in posts/
+	// Iterate over all .md files in postsDir
 	posts := make([]Post, 0)
-	mostRecent := Post{}
 	err = godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
@@ -115,15 +128,13 @@ func build() {
 				post := parse(string(content))
 				post.Slug = slug(post.Title)
 				posts = append(posts, post)
-				if post.Date.After(mostRecent.Date) {
-					mostRecent = post
-				}
 
 				// Build output using template.
 				data := PostPageData{
 					Blog: blogInfo,
 					Post: post,
 				}
+
 				var postHTML bytes.Buffer
 				err = postTemplate.ExecuteTemplate(&postHTML, "base", data)
 				check(err)
@@ -134,20 +145,37 @@ func build() {
 		},
 		Unsorted: true,
 	})
-
-	if err != nil {
-		fmt.Printf("Error walking the path %q: %v\n", postsDir, err)
-	}
+	check(err)
 
 	// Generate archive page.
 	tmpl, err := template.Must(baseTemplate.Clone()).ParseFiles(
 		"templates/archive.html",
 	)
 	check(err)
-	archivePageData := ArchivePageData{
-		Blog:  blogInfo,
-		Posts: posts,
+
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].Date.After(posts[j].Date)
+	})
+
+	// Group posts by years.
+	yearGroups := make(map[int][]Post)
+	for _, post := range posts {
+		yearGroups[post.Date.Year()] = append(yearGroups[post.Date.Year()], post)
 	}
+
+	// So that we can display the archive page post years newest to oldest.
+	years := make([]int, 0)
+	for key, _ := range yearGroups {
+		years = append(years, key)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(years)))
+
+	archivePageData := ArchivePageData{
+		Blog:       blogInfo,
+		Years:      years,
+		YearGroups: yearGroups,
+	}
+
 	var archiveHTML bytes.Buffer
 	err = tmpl.ExecuteTemplate(&archiveHTML, "base", archivePageData)
 	check(err)
@@ -157,12 +185,23 @@ func build() {
 	// Use the most recent post as the index page.
 	postPageData := PostPageData{
 		Blog: blogInfo,
-		Post: mostRecent,
+		Post: posts[0],
 	}
+
 	var postHTML bytes.Buffer
 	err = postTemplate.ExecuteTemplate(&postHTML, "base", postPageData)
 	check(err)
 	createFile(outputDir+"index.html", postHTML.String())
+}
+
+// makeTemplates outputs a default set of HTML templates in the directory
+// specified by templatesPath.
+func makeTemplates(templatesPath string) {
+	os.MkdirAll(templatesPath, os.ModePerm)
+	createFile(filepath.Join(templatesPath, "base.html"), baseTmpl)
+	createFile(filepath.Join(templatesPath, "header.html"), headerTmpl)
+	createFile(filepath.Join(templatesPath, "post.html"), postTmpl)
+	createFile(filepath.Join(templatesPath, "archive.html"), archiveTmpl)
 }
 
 // blogInfo reads a config.toml file and returns a BlogInfo struct.
@@ -238,11 +277,15 @@ func slug(s string) string {
 }
 
 func formatDate(t time.Time) string {
-	return t.Format("2006-01-02")
+	return t.Format(blogInfo().DateFormat)
+}
+
+func formatArchiveDate(t time.Time) string {
+	return t.Format("02 Jan")
 }
 
 func check(e error) {
 	if e != nil {
-		panic(e)
+		log.Fatal("Error:", e)
 	}
 }

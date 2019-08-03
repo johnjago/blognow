@@ -8,9 +8,18 @@ const baseTmpl string = `{{define "base"}}
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/kognise/water.css@latest/dist/light.min.css">
   <style>
-	.center {
-		text-align: center;
-	}
+    .center {
+      text-align: center;
+    }
+    .no-bullet {
+      list-style-type: none;
+    }
+    .p0 {
+      padding: 0;
+    }
+    .mr2 {
+      margin-right: 2rem;
+    }
   </style>
   <title>{{template "title" .}}</title>
 </head>
@@ -38,7 +47,7 @@ const postTmpl string = `{{define "title"}}
   <h2>{{.Post.Title}}</h2>
   {{.Post.Content}}
   <hr>
-  <p>Posted: {{.Post.Date | formatDate}}</p>
+  <p>{{.Post.Date | formatDate}}</p>
   <a href="/archive/">See all posts »</a>
 {{end}}
 `
@@ -48,10 +57,16 @@ All Posts - {{.Blog.Title}}
 {{end}}
 
 {{define "body"}}
-<ul>
-  {{range .Posts}}
-  <li>{{.Date | formatDate}} <a href="/{{.Slug}}">{{.Title}}</a></li>
+  {{range $year := .Years}}
+    <h2>{{$year}}</h2>
+      <ul class="p0">
+        {{$posts := index $.YearGroups $year}}
+        {{range $posts}}
+          <li class="no-bullet">
+            <span class="mr2">{{.Date | formatArchiveDate}}</span> <a href="/{{.Slug}}">{{.Title}}</a>
+          </li>
+        {{end}}
+      </ul>
   {{end}}
-</ul>
 {{end}}
 `

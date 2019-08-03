@@ -1,4 +1,4 @@
-# blognow ![](https://travis-ci.org/johnjago/blognow.svg?branch=master)
+# Blognow ![](https://travis-ci.org/johnjago/blognow.svg?branch=master)
 Blognow is a dead simple static site generator for blogs.
 
 ## Usage
@@ -42,12 +42,18 @@ $ npm i http-server -g
 $ http-server dist/
 ```
 
+## Screenshots
+
+![](img/post-page.png)
+
+![](img/archive-page.png)
+
 ## Contribute
 
 Blognow is currently under development and is not stable. If you would like to
 report an issue or suggest a feature, check out the GitHub issues.
 
-Pull requests are also welcome!
+Pull requests are welcome!
 
 ## License
 Unlicense
