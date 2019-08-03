@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -67,18 +68,14 @@ func main() {
 // makeBlogDir creates the initial directory with sample files.
 func makeBlogDir(path string) {
 	postsPath := filepath.Join(path, postsDir)
+	templatesPath := filepath.Join(path, "templates")
 	os.MkdirAll(postsPath, os.ModePerm)
-	fmt.Println("Created a new blog: " + path)
+	makeTemplates(templatesPath)
+
 	createFile(path+"/config.toml", sampleConfig)
 	createFile(postsPath+"/sample.md", samplePost)
 
-	// Template files
-	templatesPath := filepath.Join(path, "templates")
-	os.MkdirAll(templatesPath, os.ModePerm)
-	createFile(filepath.Join(templatesPath, "base.html"), baseTmpl)
-	createFile(filepath.Join(templatesPath, "header.html"), headerTmpl)
-	createFile(filepath.Join(templatesPath, "post.html"), postTmpl)
-	createFile(filepath.Join(templatesPath, "archive.html"), archiveTmpl)
+	fmt.Println("Created a new blog: " + path)
 }
 
 // build collects all the necessary information from configuration files
@@ -104,7 +101,6 @@ func build() {
 
 	// Iterate over all .md files in posts/
 	posts := make([]Post, 0)
-	mostRecent := Post{}
 	err = godirwalk.Walk(postsDir, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			ext := filepath.Ext(osPathname)
@@ -115,9 +111,6 @@ func build() {
 				post := parse(string(content))
 				post.Slug = slug(post.Title)
 				posts = append(posts, post)
-				if post.Date.After(mostRecent.Date) {
-					mostRecent = post
-				}
 
 				// Build output using template.
 				data := PostPageData{
@@ -144,6 +137,9 @@ func build() {
 		"templates/archive.html",
 	)
 	check(err)
+	sort.Slice(posts, func(i, j int) bool {
+		return posts[i].Date.After(posts[j].Date)
+	})
 	archivePageData := ArchivePageData{
 		Blog:  blogInfo,
 		Posts: posts,
@@ -157,12 +153,22 @@ func build() {
 	// Use the most recent post as the index page.
 	postPageData := PostPageData{
 		Blog: blogInfo,
-		Post: mostRecent,
+		Post: posts[0],
 	}
 	var postHTML bytes.Buffer
 	err = postTemplate.ExecuteTemplate(&postHTML, "base", postPageData)
 	check(err)
 	createFile(outputDir+"index.html", postHTML.String())
+}
+
+// makeTemplates outputs a default set of HTML templates in the directory
+// specified by templatesPath.
+func makeTemplates(templatesPath string) {
+	os.MkdirAll(templatesPath, os.ModePerm)
+	createFile(filepath.Join(templatesPath, "base.html"), baseTmpl)
+	createFile(filepath.Join(templatesPath, "header.html"), headerTmpl)
+	createFile(filepath.Join(templatesPath, "post.html"), postTmpl)
+	createFile(filepath.Join(templatesPath, "archive.html"), archiveTmpl)
 }
 
 // blogInfo reads a config.toml file and returns a BlogInfo struct.
