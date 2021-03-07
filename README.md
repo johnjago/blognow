@@ -56,4 +56,5 @@ report an issue or suggest a feature, check out the GitHub issues.
 Pull requests are welcome!
 
 ## License
-Unlicense
+
+MIT
