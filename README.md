@@ -1,7 +1,18 @@
 # Blognow ![Build status](https://travis-ci.org/johnjago/blognow.svg?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/johnjago/blognow)](https://goreportcard.com/report/github.com/johnjago/blognow)
-Blognow is a dead simple static site generator for blogs.
 
-## Usage
+Blognow is a static site generator for blogs. There is no configuration,
+confusing theme files, or complex hierarchies of pages and posts. It uses an
+opinionated design that is optimized for reading, with particular attention
+to typography.
+
+The screenshots below do not reflect the final design. As of now, it's more
+of a placeholder.
+
+Blognow is in **alpha** and should not be used in production. It's changing a
+lot right now as I work to design a great workflow for writing and publishing
+to a static site.
+
+## Proposed usage
 
 `blognow my-blog` creates a new blog in the directory my-blog.
 
@@ -9,8 +20,8 @@ Blognow is a dead simple static site generator for blogs.
 place where you can host static websites. It looks in the posts/ directory
 and formats any correctly structured .md file as HTML.
 
-As of now, it creates an index page (the latest post), individual post pages,
-and an archive page.
+It creates an index page (the latest post), individual post pages, and an
+archive page.
 
 The format for a post is:
 
