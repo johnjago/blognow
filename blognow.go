@@ -1,6 +1,4 @@
-/*
-This is the CLI for Blognow.
-*/
+// blognow is a CLI application for generating static blogs.
 package main
 
 import (

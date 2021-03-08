@@ -1,8 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## 0.3.0 (2021-03-08)
 
-## [0.2.0] (2019-08-03)
+#### Changed
+- Upgrade to Water.css 2 with dark theme support
+- Upgrade to Go modules
+
+## 0.2.0 (2019-08-03)
 
 ### Added
 - CSS styles via Water.css
@@ -14,7 +18,7 @@
 ### Fixed
 - Posts on archive page are sorted by date, newest on top
 
-## [0.1.0] (2019-07-21)
+## 0.1.0 (2019-07-21)
 
 ### Added
 - Create a new blog with the `blognow [name]` command
@@ -22,7 +26,3 @@
 - Blog title and tagline
 - Single post page
 - Archive page to view all posts
-
-[Unreleased]: https://github.com/johnjago/blognow/compare/0.2.0...HEAD
-[0.2.0]: https://github.com/johnjago/blognow/releases/tag/0.2.0
-[0.1.0]: https://github.com/johnjago/blognow/releases/tag/0.1.0
