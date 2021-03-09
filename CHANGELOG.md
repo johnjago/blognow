@@ -2,7 +2,7 @@
 
 ## 0.3.0 (2021-03-08)
 
-#### Changed
+### Changed
 - Upgrade to Water.css 2 with dark theme support
 - Upgrade to Go modules
 
